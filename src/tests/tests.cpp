@@ -28,15 +28,15 @@ void testExecutionPool( std::shared_ptr< ProgramHandler > handler, fs::path root
         .report_dir = report_dir,
         .result_dir = result_dir,
     };
-    auto rdq = std::make_shared< JsonReadDataQueue >( read_thread_num, testcases, data_paths_template );
-    // std::vector< fs::path > testcases_v;
+    // auto rdq = std::make_shared< JsonReadDataQueue >( read_thread_num, testcases, data_paths_template );
+    std::vector< fs::path > testcases_v;
     // testcases_v.push_back( testcases / "021");
     // testcases_v.push_back( testcases / "022");
     // testcases_v.push_back( testcases / "023");
     // testcases_v.push_back( testcases / "006");
-    // testcases_v.push_back( testcases / "005");
+    testcases_v.push_back( testcases / "005");
     // testcases_v.push_back( testcases / "000");
-    // auto rdq = std::make_shared< JsonReadDataQueue >( read_thread_num, testcases_v, data_paths_template );
+    auto rdq = std::make_shared< JsonReadDataQueue >( read_thread_num, testcases_v, data_paths_template );
     auto wdq = std::make_shared< JsonWriteDataQueue >( write_thread_num );
     ExecutionPool exec_pool{ handler, rdq, wdq, reports_template, computing_thread_num };
 
@@ -124,7 +124,7 @@ void RunAllTests( std::shared_ptr< ProgramHandler > handler, fs::path root_dir, 
                 FftParams params = data->params;
                 uint8_t polar = data->polar;
                 fs::path data_path = data->data_path;
-                fft_instances[thread_id]->update( *data );
+                fft_instances[thread_id]->load( *data );
                 auto time_start = std::chrono::system_clock::to_time_t( std::chrono::system_clock::now() );
                 auto time = fft_instances[thread_id]->compute();
 

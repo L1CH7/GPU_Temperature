@@ -5,7 +5,7 @@
             "name": "Debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/build/src/GpuFFT", // Укажите путь к вашему исполняемому файлу
+            "program": "${workspaceRoot}/build/src/gpu_temperature", // Укажите путь к вашему исполняемому файлу
             "args": ["3", "0"],
             // "stopAtEntry": false,
             "cwd": "${workspaceRoot}",

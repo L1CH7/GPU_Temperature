@@ -3,8 +3,4 @@
 
 #define WORKSPACE "${PROJECT_SOURCE_DIR}"
 
-#cmakedefine ENABLE_TIME_PROFILING
-
-#cmakedefine ENABLE_DEBUG_COMPUTATIONS
-
 #endif // CONFIG_H__ 

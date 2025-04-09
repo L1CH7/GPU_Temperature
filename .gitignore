@@ -12,4 +12,6 @@ data
 venv
 __pycache__
 
+test
+
 tests

@@ -1,0 +1,27 @@
+# Поиск библиотеки NVML
+find_library(NVML_LIB nvidia-ml
+    HINTS /usr/local/cuda/lib64
+    PATHS /usr/lib /usr/local/lib
+)
+
+# Поиск библиотеки AMD SMI
+find_library(AMD_SMI_LIB amd_smi
+    HINTS /opt/rocm/lib
+    PATHS /usr/lib /usr/local/lib
+)
+
+# Проверка, что библиотеки найдены
+if (NOT NVML_LIB)
+    message(FATAL_ERROR "NVML library not found!")
+endif()
+
+if (NOT AMD_SMI_LIB)
+    message(FATAL_ERROR "AMD SMI library not found!")
+endif()
+
+set(MONITORING_SOURCES
+    NvidiaMonitor.cxx
+)
+
+add_library(monitoring STATIC ${MONITORING_SOURCES})
+target_link_libraries(monitoring PRIVATE ${NVML_LIB} ${AMD_SMI_LIB} ${MONITORING_SOURCES})
