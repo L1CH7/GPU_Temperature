@@ -29,6 +29,8 @@ cmake 	-G Ninja -B "$BUILD_DIR" -S "${fullpath}" 								\
         # -D ENABLE_TIME_PROFILING=ON                                     \
 
 
+# copy config files
+cp config.json "$BUILD_DIR/src/"
 if [ $? -eq 0 ]; then
     echo "CMake успешно запущен"
 else

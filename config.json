@@ -1,0 +1,6 @@
+{
+    "server_address": "239.255.255.250",
+    "data_port": 50000,
+    "control_port": 50001,
+    "timeout_sec": 5
+}

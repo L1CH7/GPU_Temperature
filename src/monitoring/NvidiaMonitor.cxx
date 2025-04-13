@@ -6,8 +6,7 @@ NvidiaMonitor::initialize()
     return nvmlInit() == NVML_SUCCESS;
 }
 
-std::vector< GpuTemp > 
-NvidiaMonitor::toggle() 
+json NvidiaMonitor::operator()() 
 {
     std::vector< GpuTemp > result{};
     uint32_t count = 0;
@@ -33,7 +32,7 @@ NvidiaMonitor::toggle()
             result.push_back( data );
         }
     }
-    return result;
+    return json{ result };
 }
 
 NvidiaMonitor::~NvidiaMonitor() 

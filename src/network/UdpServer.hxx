@@ -1,158 +1,93 @@
 #pragma once
 
-#include <boost/asio.hpp>
-// #include <boost/asio/ip/address_v4.hpp>
-#include <iostream>
-#include <memory>
-#include <map>
-
-#include <Monitor.hxx>
+#include <UdpNode.hxx>
+#include <IMonitor.hxx>
 #include <JsonHelper.h>
 
-template< typename MonitorTp >
-class UdpServer 
+#include <memory>
+#include <iostream>
+
+class UdpServer : public UdpNode 
 {
+    std::unique_ptr< IMonitor > monitor_;
+    size_t alive_send_freq_;
+    size_t data_send_freq_;
+    boost::asio::steady_timer data_timer_;
+    boost::asio::steady_timer alive_timer_;
+    bool is_sending_data_ = false;
+
 public:
-    UdpServer( boost::asio::io_context & io, const boost::asio::ip::udp::endpoint & server_ep, const boost::asio::ip::udp::endpoint & data_ep, std::shared_ptr< MonitorTp > monitor, size_t frequency = 200 );
-    void start( boost::system::error_code & ec );
-    void stop( boost::system::error_code & ec );
+    UdpServer(boost::asio::io_context& io_context, const std::string& address, size_t data_port, size_t control_port, size_t alive_send_freq)
+    :   UdpNode(io_context, address, data_port, control_port), data_timer_(io_context), alive_send_freq_(alive_send_freq) 
+    {}
 
-private:
-    void start_recieve( boost::system::error_code & ec );
-    void handle_receive( const boost::system::error_code & ec, std::size_t bytes, boost::system::error_code & outer_ec );
-    void send_data( boost::system::error_code & ec );
-
-    boost::asio::ip::udp::socket socket_;
-    std::array< char, 1024 > recv_buffer_;
-    boost::asio::ip::udp::endpoint remote_endpoint_;
-    std::shared_ptr< MonitorTp > monitor_;
-    std::atomic< bool > running_;
-    std::thread worker_thread_;
-    // std::map< boost::asio::ip::udp::endpoint, bool > clients_;
-    size_t frequency_; // Частота отправки данных в миллисекундах
-};
-
-template< typename MonitorTp >
-std::shared_ptr< UdpServer< MonitorTp > > 
-makeUdpServer( boost::asio::io_context & io, const boost::asio::ip::udp::endpoint & server_ep, const boost::asio::ip::udp::endpoint & data_ep, std::shared_ptr< MonitorTp > monitor, size_t frequency = 200 )
-{
-    return std::make_shared< UdpServer< MonitorTp > >( io, server_ep, data_ep, monitor, frequency );
-}
-
-template< typename MonitorTp >
-UdpServer< MonitorTp >::UdpServer( boost::asio::io_context & io, const boost::asio::ip::udp::endpoint & ep, const boost::asio::ip::udp::endpoint & data_ep, std::shared_ptr< MonitorTp > monitor, size_t frequency )
-:   socket_( io, ep ),
-    remote_endpoint_( data_ep ),
-    monitor_( monitor ),
-    running_( false ),
-    frequency_( frequency )
-    // :   remote_endpoint_( client_ep ),
-{
-    // socket_.open( boost::asio::ip::udp::v4() );
-    boost::system::error_code ec;
-    start_recieve( ec );
-    if( ec )
-        std::cerr << ec.what() << '\n';
-}
-
-template< typename MonitorTp >
-void UdpServer< MonitorTp >::start( boost::system::error_code & ec ) 
-{
-    running_ = true;
-    worker_thread_ = std::thread( [this, &ec]
-        {
-            while( running_ ) 
-            {
-                // if( !clients_.empty() ) 
-                // {
-                    // auto data = monitor_->toggle();
-                    // send_data( data, ec );
-                    send_data( ec );
-                // }
-                std::this_thread::sleep_for( std::chrono::milliseconds( frequency_ ) );
-            }
-        }
-    );
-}
-
-template< typename MonitorTp >
-void UdpServer< MonitorTp >::stop( boost::system::error_code & ec ) 
-{
-    running_ = false;
-    if( worker_thread_.joinable() )
+    void setMonitor( std::unique_ptr< IMonitor > & m )
     {
-        worker_thread_.join();
+        monitor_ = std::move( m );
     }
-}
-
-template< typename MonitorTp >
-void UdpServer< MonitorTp >::start_recieve( boost::system::error_code & ec ) 
-{
-    socket_.async_receive_from(
-        boost::asio::buffer( recv_buffer_ ),
-        remote_endpoint_,
-        [this, &ec]( const boost::system::error_code & inner_ec, size_t bytes ) 
-        {
-            std::cout << "start recieving..." << remote_endpoint_ << std::endl;
-            handle_receive( inner_ec, bytes, ec );
-        }
-    );
-}
-
-template< typename MonitorTp >
-void UdpServer< MonitorTp >::handle_receive( const boost::system::error_code & ec, std::size_t bytes, boost::system::error_code & outer_ec )
-{
-    if( ec ) 
-    {
-        outer_ec = ec;
-        return;
+        
+    void start_send_alive() {
+        socket_.async_send_to(
+            boost::asio::buffer("ALIVE"),
+            multicast_endpoint_,
+            [this](auto...){ schedule_next_alive(); });
     }
-
-    std::cout << "recieved data!" << std::endl;
-    std::string cmd( recv_buffer_.data(), bytes );
-
-    if( cmd[0] == 'S' ) 
-    {
-        // clients_[remote_endpoint_] = true;
-        std::cout << "Client connected: " << remote_endpoint_ << std::endl;
-        std::cout << "Start: " << std::endl;
-        start( outer_ec );
-    } 
-    else if( cmd[0] == 'E' ) 
-    {
-        // clients_.erase( remote_endpoint_ );
-        std::cout << "Client disconnected: " << remote_endpoint_ << std::endl;
-        std::cout << "Stopped: " << std::endl;
-        stop( outer_ec );
-    }
-
-    start_recieve( outer_ec );
-}
-
-template< typename MonitorTp >
-void UdpServer< MonitorTp >::send_data( boost::system::error_code & ec ) 
-{
-    auto data = monitor_->toggle();
-    json j( data );
-    std::string msg( j.dump() + '\n' );
-    std::cout << "sending data to.." << remote_endpoint_ << std::endl;
-
-    socket_.send_to( boost::asio::buffer( msg ), remote_endpoint_, 0, ec );
     
-    if( ec ) 
-    {
-        std::cerr << "Error sending to " << remote_endpoint_ << ": " << ec.message() << std::endl;
+    void schedule_next_alive() {
+        alive_timer_.expires_after(std::chrono::milliseconds(100)); // Отправка alive каждые 100 мс
+        alive_timer_.async_wait([this](auto){ start_send_alive(); });
     }
-    // for( const auto & [endpoint, active] : clients_ ) 
-    // {
-    //     if( active ) 
-    //     {
-    //         socket_.send_to( boost::asio::buffer( msg ), endpoint, 0, ec );
-    //         if( ec ) 
-    //         {
-    //             std::cerr << "Error sending to " << endpoint << ": " << ec.message() << std::endl;
-    //             clients_.erase( endpoint );
-    //         }
-    //     }
-    // }
-}
+    
+    void handle_alive_response() {
+        is_sending_data_ = true;
+        start_send_data();
+    }
+    
+    void start_send_data() {
+        if (is_sending_data_) {
+            auto data = monitor_.toggle();
+            socket_.async_send_to(
+                boost::asio::buffer(nlohmann::json(data).dump()),
+                multicast_endpoint_,
+                [this](auto...){ schedule_next_data(); });
+        }
+    }
+    
+    void schedule_next_data() {
+        data_timer_.expires_after(std::chrono::seconds(1)); // Отправка данных каждую секунду
+        data_timer_.async_wait([this](auto){ start_send_data(); });
+    }
+    
+    void handle_control_message(const std::string& message) {
+        if (message == "ALIVE_RESPONSE") {
+            handle_alive_response();
+        } else if (message == "START") {
+            is_sending_data_ = true;
+            start_send_data();
+        } else if (message == "END") {
+            is_sending_data_ = false;
+        }
+    }
+    
+    void start_control_listen() {
+        boost::asio::ip::udp::socket control_socket_(io_context_, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), control_port_));
+        control_socket_.async_receive_from(
+            boost::asio::buffer(buffer_),
+            control_endpoint_,
+            [this, &control_socket_](auto...){ handle_control_message(control_socket_); });
+    }
+    
+    void handle_control_message(boost::asio::ip::udp::socket& control_socket_) {
+        std::string message(buffer_.data(), buffer_.size());
+        handle_control_message(message);
+        control_socket_.async_receive_from(
+            boost::asio::buffer(buffer_),
+            control_endpoint_,
+            [this, &control_socket_](auto...){ handle_control_message(control_socket_); });
+    }
+    
+    void start() {
+        start_send_alive();
+        start_control_listen();
+    }
+};

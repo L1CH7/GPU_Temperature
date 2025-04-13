@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Monitor.hxx>
+#include <IMonitor.hxx>
 
 #include <string>
 #include <vector>
@@ -9,7 +9,7 @@
 
 #include <GpuTemp.hxx>
 
-class NvidiaMonitor : public IMonitor< std::vector< GpuTemp > >
+class NvidiaMonitor : public IMonitor
 {
 public:
 
@@ -17,7 +17,7 @@ public:
 
     bool initialize() override;
 
-    std::vector< GpuTemp > toggle() override;
+    json operator()() override;
 
     ~NvidiaMonitor();
 };
